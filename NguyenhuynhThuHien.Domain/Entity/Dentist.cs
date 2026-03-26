@@ -9,6 +9,8 @@
             public string Specialty { get; set; } = string.Empty;
 
             public byte Status { get; set; } = 1;
+            public int? UserId { get; set; }
+            public User? User { get; set; }
 
             // Navigation properties
             public ICollection<TimeSlot> TimeSlots { get; set; } = new List<TimeSlot>();

@@ -14,6 +14,7 @@ namespace NguyenhuynhThuHien.Domain.Data
         public DbSet<Dentist> Dentists { get; set; }
         public DbSet<Service> Services { get; set; }
         public DbSet<Chair> Chairs { get; set; }
+        public DbSet<User> Users { get; set; }
         public DbSet<TimeSlot> TimeSlots { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
 
