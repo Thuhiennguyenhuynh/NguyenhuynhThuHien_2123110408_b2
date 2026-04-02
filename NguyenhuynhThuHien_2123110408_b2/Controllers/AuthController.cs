@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NguyenhuynhThuHien.Domain.Constants;
 using NguyenhuynhThuHien.Domain.Data;
 using NguyenhuynhThuHien.Domain.Entity;
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
@@ -23,7 +24,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             _context = context;
         }
 
-        // --- 1. API ĐĂNG KÝ ---
+        // --- 1. API ĐĂNG KÝ (CHỈ DÀNH CHO BỆNH NHÂN) ---
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -38,21 +39,44 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 return Conflict(new { Message = "Tên đăng nhập này đã tồn tại!" });
             }
 
-            // Mã hóa mật khẩu người dùng nhập vào
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
-            // Lưu thông tin vào Database thật
-            var newUser = new User
+            // MỞ TRANSACTION: Đảm bảo tạo User và Patient phải thành công cùng lúc
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Username = request.Username,
-                PasswordHash = passwordHash,
-                Role = request.Role
-            };
+                // 1. Lưu thông tin vào bảng Users và GÁN CỨNG quyền Patient
+                string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                var newUser = new User
+                {
+                    Username = request.Username,
+                    PasswordHash = passwordHash,
+                    Role = AppRoles.Patient // Thay vì request.Role, ta gán cứng bằng hằng số
+                };
 
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
 
-            return Ok(new { Message = "Đăng ký thành công!" });
+                // 2. Tạo hồ sơ Bệnh nhân (Patient) tương ứng
+                var newPatient = new Patient
+                {
+                    Name = request.Name,
+                    Phone = request.Phone
+                    // Nếu bảng Patient có cột UserId (Khóa ngoại), bạn gán ở đây:
+                    // UserId = newUser.Id 
+                };
+
+                _context.Patients.Add(newPatient);
+                await _context.SaveChangesAsync();
+
+                // LƯU TOÀN BỘ THAY ĐỔI
+                await transaction.CommitAsync();
+
+                return Ok(new { Message = "Đăng ký tài khoản bệnh nhân thành công!" });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi đăng ký", Details = ex.Message });
+            }
         }
 
         // --- 2. API ĐĂNG NHẬP ---
