@@ -22,8 +22,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.DTOs
         [Required(ErrorMessage = "Họ và tên không được để trống")]
         public string Name { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Quyền (Role) không được để trống")]
-        public string Role { get; set; } = "Patient"; // Gợi ý Role mặc định
+        [Required(ErrorMessage = "Số điện thoại không được để trống")]
+        public string Phone { get; set; } = string.Empty; // Thêm trường này để tạo hồ sơ Patient
     }
 
     public class CreateStaffRequest
