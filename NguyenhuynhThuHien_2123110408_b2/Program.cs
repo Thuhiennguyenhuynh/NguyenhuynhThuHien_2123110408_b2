@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NguyenhuynhThuHien.Domain.Data;
 using NguyenhuynhThuHien_2123110408_b2.Services;
+using NguyenhuynhThuHien.Domain.Constants;
+using NguyenhuynhThuHien.Domain.Entity;
 namespace NguyenhuynhThuHien_2123110408_b2
 {
     public class Program
@@ -104,10 +106,34 @@ namespace NguyenhuynhThuHien_2123110408_b2
             var app = builder.Build();
 
 
+            // ---SEEDING ADMIN ---
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                var context = services.GetRequiredService<ApplicationDbContext>();
+
+                // Tự động update database nếu có migration mới
+                context.Database.Migrate();
+
+                // Kiểm tra xem đã có Admin nào chưa
+                if (!context.Users.Any(u => u.Role == AppRoles.Admin))
+                {
+                    var rootAdmin = new User
+                    {
+                        Username = "admin",
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                        Role = AppRoles.Admin
+                    };
+
+                    context.Users.Add(rootAdmin);
+                    context.SaveChanges();
+                }
+            }
 
 
 
-         
+
+
 
             //Cấu hình HTTP request pipeline
 
@@ -121,7 +147,7 @@ namespace NguyenhuynhThuHien_2123110408_b2
             app.UseHttpsRedirection();
 
             // KÍCH HOẠT CORS Ở ĐÂY:
-            app.UseCors("AllowAll");
+            app.    UseCors("AllowAll");
             //app.UseCors("AllowVue");
 
             app.UseAuthentication();
