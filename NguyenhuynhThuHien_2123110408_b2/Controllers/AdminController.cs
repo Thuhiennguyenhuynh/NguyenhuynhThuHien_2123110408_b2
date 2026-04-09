@@ -78,5 +78,81 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 return StatusCode(500, new { Message = "Lỗi hệ thống khi tạo tài khoản", Details = ex.Message });
             }
         }
+
+
+        [HttpGet("dashboard-stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            try
+            {
+                var today = DateTime.Today;
+
+                // 1. Đếm số lịch khám trong ngày hôm nay (bất kể trạng thái nào)
+                var appointmentsToday = await _context.Appointments
+                    .Where(a => a.StartTime.Date == today)
+                    .CountAsync();
+
+                // 2. Đếm số lịch khám đang chờ duyệt (Status = 0: Pending)
+                var pendingAppointments = await _context.Appointments
+                    .Where(a => a.Status == 0)
+                    .CountAsync();
+
+                // 3. Đếm số lượng nha sĩ đang hoạt động (Status = 1)
+                var activeDentists = await _context.Dentists
+                    .Where(d => d.Status == 1)
+                    .CountAsync();
+
+                return Ok(new
+                {
+                    appointmentsToday,
+                    pendingAppointments,
+                    activeDentists
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống khi lấy thống kê", Details = ex.Message });
+            }
+            
+    }
+
+        [HttpGet("receptionists")]
+        public async Task<IActionResult> GetReceptionists()
+        {
+            try
+            {
+                // Chỉ lấy những User có Role là Receptionist
+                var receptionists = await _context.Users
+                    .Where(u => u.Role == AppRoles.Receptionist)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.Username,
+                        u.Role
+                    })
+                    .ToListAsync();
+
+                return Ok(receptionists);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi khi lấy danh sách lễ tân", Details = ex.Message });
+            }
+        }
+
+        [HttpDelete("receptionists/{id}")]
+        public async Task<IActionResult> DeleteReceptionist(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null || user.Role != AppRoles.Receptionist)
+            {
+                return NotFound(new { Message = "Không tìm thấy tài khoản Lễ tân này." });
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Đã xóa tài khoản Lễ tân thành công!" });
+        }
     }
 }
