@@ -2,6 +2,8 @@
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
 using NguyenhuynhThuHien_2123110408_b2.Services;
 using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Threading.Tasks;
 
 namespace NguyenhuynhThuHien_2123110408_b2.Controllers
 {
@@ -25,6 +27,24 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 var appointments = await _appointmentService.GetAllAppointmentsAsync();
 
                 // Nếu không có dữ liệu, trả về danh sách rỗng 200 OK
+                return Ok(appointments);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
+
+        // ==========================================
+        // THÊM MỚI: LẤY LỊCH HẸN THEO BỆNH NHÂN
+        // API Endpoint: GET /api/appointments/patient/{patientId}
+        // ==========================================
+        [HttpGet("patient/{patientId}")]
+        public async Task<IActionResult> GetAppointmentsByPatient(int patientId)
+        {
+            try
+            {
+                var appointments = await _appointmentService.GetAppointmentsByPatientIdAsync(patientId);
                 return Ok(appointments);
             }
             catch (Exception ex)
@@ -124,8 +144,9 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
-        [HttpGet("timeslots")]
-        public async Task<IActionResult> GetTimeSlots([FromQuery] int dentistId, [FromQuery] DateTime date)
+        [HttpGet("/api/slots")]
+        // Bổ sung thêm tham số serviceId theo chuẩn yêu cầu
+        public async Task<IActionResult> GetTimeSlots([FromQuery] int dentistId, [FromQuery] DateTime date, [FromQuery] int serviceId)
         {
             try
             {
@@ -135,14 +156,10 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                     return BadRequest(new { Message = "Không thể tra cứu giờ trống trong quá khứ." });
                 }
 
+                // Lưu ý: Nếu IAppointmentService của bạn chưa nhận serviceId, bạn cần vào Interface và Service sửa lại để truyền serviceId vào tính toán thời lượng nhé.
                 var slots = await _appointmentService.GetAvailableTimeSlotsAsync(dentistId, date);
 
-                return Ok(new
-                {
-                    DentistId = dentistId,
-                    Date = date.ToString("yyyy-MM-dd"),
-                    AvailableSlots = slots
-                });
+                return Ok(slots); // Frontend mong đợi mảng các chuỗi giờ (VD: ["08:00", "08:30"]) chứ không phải object.
             }
             catch (Exception ex)
             {

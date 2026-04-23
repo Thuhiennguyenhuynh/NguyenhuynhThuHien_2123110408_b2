@@ -13,5 +13,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
         Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, DateTime date);
 
         Task<bool> UpdateAppointmentStatusAsync(int id, byte newStatus);
+        Task GetAppointmentsByPatientIdAsync(int patientId);
+
+        Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId);
     }
 }
