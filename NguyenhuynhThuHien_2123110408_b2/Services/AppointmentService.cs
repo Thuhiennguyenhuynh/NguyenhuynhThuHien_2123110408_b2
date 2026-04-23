@@ -230,5 +230,26 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
 
             return appointments;
         }
+
+        public async Task<IEnumerable<AppointmentResponse>> GetAppointmentsByDentistIdAsync(int dentistId)
+        {
+            return await _context.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Service)
+                .Include(a => a.Chair)
+                .Where(a => a.DentistId == dentistId && a.Status != 5) // Lọc theo Nha sĩ và bỏ qua lịch đã hủy
+                .OrderBy(a => a.StartTime)
+                .Select(a => new AppointmentResponse
+                {
+                    Id = a.Id,
+                    PatientName = a.Patient.Name,
+                    ServiceName = a.Service.Name,
+                    ChairName = a.Chair.Name,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    StatusText = GetStatusText(a.Status)
+                })
+                .ToListAsync();
+        }
     }
 }

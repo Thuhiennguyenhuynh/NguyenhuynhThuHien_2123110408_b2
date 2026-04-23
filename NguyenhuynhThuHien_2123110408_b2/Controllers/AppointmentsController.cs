@@ -166,5 +166,19 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
             }
         }
+
+        [HttpGet("dentist/{dentistId}")]
+        public async Task<IActionResult> GetAppointmentsByDentist(int dentistId)
+        {
+            try
+            {
+                var appointments = await _appointmentService.GetAppointmentsByDentistIdAsync(dentistId);
+                return Ok(appointments);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
     }
 }

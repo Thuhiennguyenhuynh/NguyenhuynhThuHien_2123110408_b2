@@ -17,5 +17,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
 
         // Lấy lịch hẹn theo Bệnh nhân (Đã xóa dòng thừa)
         Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId);
+        // Thêm vào interface IAppointmentService
+        Task<IEnumerable<AppointmentResponse>> GetAppointmentsByDentistIdAsync(int dentistId);
     }
 }
