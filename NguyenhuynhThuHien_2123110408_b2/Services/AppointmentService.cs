@@ -202,5 +202,33 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
 
             return true;
         }
+
+        // ==========================================
+        // THÊM MỚI: LẤY LỊCH CỦA MỘT BỆNH NHÂN
+        // ==========================================
+        public async Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId)
+        {
+            var appointments = await _context.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Dentist)
+                .Include(a => a.Chair)
+                .Include(a => a.Service)
+                .Where(a => a.PatientId == patientId) // Lọc theo ID bệnh nhân
+                .Select(a => new AppointmentResponse
+                {
+                    Id = a.Id,
+                    PatientName = a.Patient.Name,
+                    DentistName = a.Dentist.Name,
+                    ChairName = a.Chair.Name,
+                    ServiceName = a.Service.Name,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    StatusText = GetStatusText(a.Status)
+                })
+                .OrderByDescending(a => a.StartTime) // Lịch mới nhất xếp trên
+                .ToListAsync();
+
+            return appointments;
+        }
     }
 }
