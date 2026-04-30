@@ -1,4 +1,7 @@
 ﻿using NguyenhuynhThuHien_2123110408_b2.DTOs;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace NguyenhuynhThuHien_2123110408_b2.Services
 {
@@ -6,20 +9,16 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
     {
         Task<bool> CreateAppointmentAsync(AppointmentCreateRequest request);
         Task<bool> CancelAppointmentAsync(int appointmentId);
-
-        // lấy danh sách toàn bộ
         Task<IEnumerable<AppointmentResponse>> GetAllAppointmentsAsync();
 
-        // Tìm các khung giờ còn trống của 1 nha sĩ trong 1 ngày cụ thể
-      Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, int serviceId, DateTime date);
+        // Chỉ giữ lại DUY NHẤT dòng này cho hàm tìm giờ trống
+        Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, int serviceId, DateTime date);
 
         Task<bool> UpdateAppointmentStatusAsync(int id, byte newStatus);
-
-        // Lấy lịch hẹn theo Bệnh nhân (Đã xóa dòng thừa)
         Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId);
-        // Thêm vào interface IAppointmentService
         Task<IEnumerable<AppointmentResponse>> GetAppointmentsByDentistIdAsync(int dentistId);
-        Task GetAvailableTimeSlotsAsync(int dentistId, DateTime date);
+
+        // Hàm CheckIn trả về bool (không phải trả về Object)
         Task<bool> CheckInAsync(int id);
     }
 }

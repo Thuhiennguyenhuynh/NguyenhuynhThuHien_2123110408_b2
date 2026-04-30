@@ -285,5 +285,10 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
                 _ => "Unknown"
             };
         }
+
+        public Task GetAvailableTimeSlotsAsync(int dentistId, DateTime date)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
