@@ -1,6 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NguyenhuynhThuHien.Domain.Data;
+using NguyenhuynhThuHien.Domain.Entity;
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NguyenhuynhThuHien_2123110408_b2.Services
 {
@@ -14,11 +19,11 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
         }
 
         // ==========================================
-        // 1. TÍNH NĂNG ĐẶT LỊCH (Đã làm xong)
+        // 1. TÍNH NĂNG ĐẶT LỊCH (Update theo BA: Không gán ghế)
         // ==========================================
         public async Task<bool> CreateAppointmentAsync(AppointmentCreateRequest request)
         {
-            // Rule 6.2: Không đặt lịch trong quá khứ
+            // Rule: Không đặt lịch trong quá khứ
             if (request.StartTime <= DateTime.Now)
             {
                 throw new ArgumentException("Thời gian đặt lịch không hợp lệ (phải lớn hơn hiện tại).");
@@ -30,205 +35,202 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
                 throw new ArgumentException("Dịch vụ không tồn tại.");
             }
 
-            // Rule 6.3: Tự động tính EndTime = StartTime + Duration
+            // Rule BR-05: Tự động tính EndTime = StartTime + Duration[cite: 4]
             DateTime endTime = request.StartTime.AddMinutes(service.Duration);
-            byte status = 0; // 0: Pending
 
-            try
+            // Rule BR-01: Kiểm tra trùng lịch bác sĩ[cite: 4]
+            bool isDentistBooked = await _context.Appointments.AnyAsync(a =>
+                a.DentistId == request.DentistId &&
+                a.Status <= 2 && // Pending, Confirmed, CheckedIn
+                (request.StartTime < a.EndTime && endTime > a.StartTime));
+
+            if (isDentistBooked)
             {
-                // Gọi Stored Procedure đã tạo ở Database
-                await _context.Database.ExecuteSqlInterpolatedAsync(
-                    $"EXEC CreateAppointment {request.PatientId}, {request.DentistId}, {request.ChairId}, {request.ServiceId}, {request.StartTime}, {endTime}, {status}"
-                );
-                return true;
+                throw new InvalidOperationException("Bác sĩ đã có lịch trong khung giờ này.");
             }
-            catch (Exception ex)
+
+            // Tạo lịch hẹn mới bằng EF Core thay vì SP
+            var newAppointment = new Appointment
             {
-                // Bắt lỗi từ lệnh THROW 50001 trong Stored Procedure
-                if (ex.Message.Contains("Trùng lịch"))
-                {
-                    throw new InvalidOperationException(ex.Message);
-                }
-                throw;
-            }
+                PatientId = request.PatientId,
+                DentistId = request.DentistId,
+                ServiceId = request.ServiceId,
+                StartTime = request.StartTime,
+                EndTime = endTime,
+                Status = 0, // 0: Pending[cite: 4]
+                ChairId = null, // BA Update: KHÔNG gán ghế lúc này[cite: 4]
+                // Note và BookingSource cần được map từ request sang nếu request của bạn có các trường này
+                // Note = request.Note, 
+                // BookingSource = "Online" 
+            };
+
+            _context.Appointments.Add(newAppointment);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         // ==========================================
-        // 2. TÍNH NĂNG HỦY LỊCH (Mới thêm vào)
+        // 2. TÍNH NĂNG CHECK-IN VÀ GÁN GHẾ (Mới bổ sung theo SRS)
+        // ==========================================
+        public async Task<bool> CheckInAsync(int appointmentId)
+        {
+            var appointment = await _context.Appointments.FindAsync(appointmentId);
+            if (appointment == null) throw new ArgumentException("Không tìm thấy lịch khám.");
+
+            // Chỉ cho phép Check-in khi lịch đã Confirm (1)
+            if (appointment.Status != 1)
+                throw new InvalidOperationException("Chỉ có thể Check-in cho lịch hẹn đã được Xác nhận (Confirmed).");
+
+            // Lấy danh sách ghế đang rảnh (Status = 1)[cite: 4]
+            var availableChairs = await _context.Chairs.Where(c => c.Status == 1).ToListAsync();
+
+            int? selectedChairId = null;
+            foreach (var chair in availableChairs)
+            {
+                // Rule BR-02: Kiểm tra ghế có bị trùng lịch tại thời điểm khám không[cite: 4]
+                bool isChairOccupied = await _context.Appointments.AnyAsync(a =>
+                    a.ChairId == chair.Id &&
+                    (a.Status == 2 || a.Status == 3) && // Đang CheckedIn hoặc InProgress
+                    (appointment.StartTime < a.EndTime && appointment.EndTime > a.StartTime));
+
+                if (!isChairOccupied)
+                {
+                    selectedChairId = chair.Id;
+                    break;
+                }
+            }
+
+            if (selectedChairId == null)
+                throw new InvalidOperationException("Hiện tại phòng khám đã hết ghế trống. Vui lòng chờ.");
+
+            // Gán ghế và cập nhật trạng thái
+            appointment.ChairId = selectedChairId;
+            appointment.Status = 2; // 2: CheckedIn[cite: 4]
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // ==========================================
+        // 3. TÍNH NĂNG HỦY LỊCH
         // ==========================================
         public async Task<bool> CancelAppointmentAsync(int appointmentId)
         {
-            // Tìm lịch khám trong DB
             var appointment = await _context.Appointments.FindAsync(appointmentId);
-            if (appointment == null)
-            {
-                throw new ArgumentException("Không tìm thấy lịch khám này.");
-            }
+            if (appointment == null) throw new ArgumentException("Không tìm thấy lịch khám này.");
 
-            // Rule 6.4: Không cho hủy lịch trước 2 tiếng so với giờ bắt đầu
+            // Rule BR-04: Không cho hủy lịch trước 2 tiếng[cite: 4]
             var timeDifference = appointment.StartTime - DateTime.Now;
             if (timeDifference.TotalHours < 2)
             {
                 throw new InvalidOperationException("Không thể hủy lịch! Bạn chỉ được phép hủy trước ít nhất 2 giờ so với thời gian khám.");
             }
 
-            // Nếu hợp lệ, chuyển Status thành 5 (Cancelled)
-            appointment.Status = 5;
-
-            // Lưu xuống DB
+            appointment.Status = 5; // Cancelled[cite: 4]
             await _context.SaveChangesAsync();
             return true;
         }
 
         // ==========================================
-        // 3. TÍNH NĂNG LẤY DANH SÁCH (GET)
+        // 4. TÍNH NĂNG TÌM GIỜ TRỐNG (Cập nhật logic Duration)
         // ==========================================
-        public async Task<IEnumerable<AppointmentResponse>> GetAllAppointmentsAsync()
+        public async Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, int serviceId, DateTime date)
         {
-            var appointments = await _context.Appointments
-                .Include(a => a.Patient)
-                .Include(a => a.Dentist)
-                .Include(a => a.Chair)
-                .Include(a => a.Service)
-                .Select(a => new AppointmentResponse
-                {
-                    Id = a.Id,
-                    PatientName = a.Patient.Name,
-                    DentistName = a.Dentist.Name,
-                    ChairName = a.Chair.Name,
-                    ServiceName = a.Service.Name,
-                    StartTime = a.StartTime,
-                    EndTime = a.EndTime,
-                    // Gọi hàm phụ để dịch Status dạng số sang dạng chữ theo SRS mục 3
-                    StatusText = GetStatusText(a.Status)
-                })
-                .ToListAsync();
+            // Lấy Duration của dịch vụ[cite: 4]
+            var service = await _context.Services.FindAsync(serviceId);
+            if (service == null) throw new ArgumentException("Dịch vụ không tồn tại.");
+            int durationMinutes = service.Duration;
 
-            return appointments;
-        }
-
-        // Hàm phụ (Helper method) giúp dịch số thành chữ cho người dùng dễ đọc
-        private static string GetStatusText(byte status)
-        {
-            return status switch
-            {
-                0 => "Pending",
-                1 => "Confirmed",
-                2 => "CheckedIn",
-                3 => "InTreatment",
-                4 => "Completed",
-                5 => "Cancelled",
-                6 => "NoShow",
-                _ => "Unknown"
-            };
-        }
-
-        // ==========================================
-        // 4. TÍNH NĂNG TÌM GIỜ TRỐNG (GET TIMESLOTS)
-        // ==========================================
-        public async Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, DateTime date)
-        {
-            // 1. Lấy danh sách các lịch ĐÃ ĐẶT của Nha sĩ này trong ngày hôm đó
-            // Bỏ qua các lịch đã bị hủy (Status = 5)
+            // Lấy lịch của nha sĩ (bỏ lịch Hủy và NoShow)[cite: 4]
             var busyAppointments = await _context.Appointments
                 .Where(a => a.DentistId == dentistId
                          && a.StartTime.Date == date.Date
-                         && a.Status != 5)
+                         && a.Status != 5 && a.Status != 6)
                 .ToListAsync();
 
-            // 2. Tạo khung giờ làm việc chuẩn: Từ 8h00 sáng đến 17h00 chiều
-            // Giả sử mỗi ca khám chia làm các block 30 phút
-            var allWorkingSlots = new List<TimeSpan>();
-            for (int hour = 8; hour < 17; hour++)
-            {
-                // Nghỉ trưa từ 12h - 13h
-                if (hour == 12) continue;
-
-                allWorkingSlots.Add(new TimeSpan(hour, 0, 0));  // Chẵn giờ (VD: 08:00)
-                allWorkingSlots.Add(new TimeSpan(hour, 30, 0)); // Rưỡi (VD: 08:30)
-            }
-
-            // 3. Lọc ra những khung giờ CHƯA BỊ TRÙNG
             var availableSlots = new List<string>();
+            var workStart = date.Date.AddHours(8);  // 08:00[cite: 4]
+            var workEnd = date.Date.AddHours(17);   // 17:00[cite: 4]
+            var step = TimeSpan.FromMinutes(30);
 
-            foreach (var slot in allWorkingSlots)
+            var currentSlot = workStart;
+
+            while (currentSlot.AddMinutes(durationMinutes) <= workEnd)
             {
-                var slotStartTime = date.Date.Add(slot);
-                var slotEndTime = slotStartTime.AddMinutes(30); // Giả định check block 30p
+                // Bỏ qua giờ nghỉ trưa (Nếu khung giờ chạm vào 12h-13h)
+                if (currentSlot.Hour == 12 || currentSlot.AddMinutes(durationMinutes) > date.Date.AddHours(12) && currentSlot < date.Date.AddHours(13))
+                {
+                    currentSlot = currentSlot.Add(step);
+                    continue;
+                }
 
-                // Kiểm tra xem slot này có bị đè vào bất kỳ Appointment nào đã tồn tại không
-                bool isBusy = busyAppointments.Any(a =>
-                    (slotStartTime >= a.StartTime && slotStartTime < a.EndTime) || // Bắt đầu giữa chừng ca khác
-                    (slotEndTime > a.StartTime && slotEndTime <= a.EndTime) ||     // Kết thúc giữa chừng ca khác
-                    (slotStartTime <= a.StartTime && slotEndTime >= a.EndTime)     // Trùm ra ngoài ca khác
-                );
+                var potentialEnd = currentSlot.AddMinutes(durationMinutes);
 
-                // Nếu thời gian check là ở quá khứ so với hiện tại (ví dụ tìm giờ cho ngày hôm nay) thì bỏ qua
-                if (slotStartTime <= DateTime.Now)
+                // Kiểm tra Overlap với lịch khác[cite: 4]
+                bool isBusy = busyAppointments.Any(a => currentSlot < a.EndTime && potentialEnd > a.StartTime);
+
+                if (currentSlot <= DateTime.Now)
                 {
                     isBusy = true;
                 }
 
-                // Nếu không bận, thêm vào danh sách kết quả trả về
                 if (!isBusy)
                 {
-                    availableSlots.Add(slot.ToString(@"hh\:mm")); // Trả về dạng "08:00", "08:30"
+                    availableSlots.Add(currentSlot.ToString("HH:mm"));
                 }
+
+                currentSlot = currentSlot.Add(step);
             }
 
             return availableSlots;
         }
 
-
         // ==========================================
-        // 5. TÍNH NĂNG CẬP NHẬT TRẠNG THÁI (PUT)
+        // 5. CÁC HÀM GET (Lấy dữ liệu)
         // ==========================================
-        public async Task<bool> UpdateAppointmentStatusAsync(int id, byte newStatus)
+        public async Task<IEnumerable<AppointmentResponse>> GetAllAppointmentsAsync()
         {
-            var appointment = await _context.Appointments.FindAsync(id);
-            if (appointment == null)
-            {
-                throw new ArgumentException("Không tìm thấy lịch khám.");
-            }
-
-            // Có thể thêm logic rule ở đây (VD: Không cho chuyển từ Completed ngược về Pending)
-            if (appointment.Status == 4 && newStatus < 4)
-            {
-                throw new InvalidOperationException("Lịch khám đã hoàn thành, không thể quay ngược trạng thái.");
-            }
-
-            appointment.Status = newStatus;
-            await _context.SaveChangesAsync();
-
-            return true;
-        }
-
-        // ==========================================
-        // THÊM MỚI: LẤY LỊCH CỦA MỘT BỆNH NHÂN
-        // ==========================================
-        public async Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId)
-        {
-            var appointments = await _context.Appointments
+            return await _context.Appointments
                 .Include(a => a.Patient)
                 .Include(a => a.Dentist)
                 .Include(a => a.Chair)
                 .Include(a => a.Service)
-                .Where(a => a.PatientId == patientId) // Lọc theo ID bệnh nhân
                 .Select(a => new AppointmentResponse
                 {
                     Id = a.Id,
                     PatientName = a.Patient.Name,
                     DentistName = a.Dentist.Name,
-                    ChairName = a.Chair.Name,
+                    // Xử lý an toàn vì ChairId giờ có thể null[cite: 4]
+                    ChairName = a.Chair != null ? a.Chair.Name : "Chưa gán ghế",
                     ServiceName = a.Service.Name,
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     StatusText = GetStatusText(a.Status)
                 })
-                .OrderByDescending(a => a.StartTime) // Lịch mới nhất xếp trên
                 .ToListAsync();
+        }
 
-            return appointments;
+        public async Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId)
+        {
+            return await _context.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Dentist)
+                .Include(a => a.Chair)
+                .Include(a => a.Service)
+                .Where(a => a.PatientId == patientId)
+                .Select(a => new AppointmentResponse
+                {
+                    Id = a.Id,
+                    PatientName = a.Patient.Name,
+                    DentistName = a.Dentist.Name,
+                    ChairName = a.Chair != null ? a.Chair.Name : "Chưa gán ghế",
+                    ServiceName = a.Service.Name,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    StatusText = GetStatusText(a.Status)
+                })
+                .OrderByDescending(a => a.StartTime)
+                .ToListAsync();
         }
 
         public async Task<IEnumerable<AppointmentResponse>> GetAppointmentsByDentistIdAsync(int dentistId)
@@ -237,19 +239,51 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
                 .Include(a => a.Patient)
                 .Include(a => a.Service)
                 .Include(a => a.Chair)
-                .Where(a => a.DentistId == dentistId && a.Status != 5) // Lọc theo Nha sĩ và bỏ qua lịch đã hủy
+                .Where(a => a.DentistId == dentistId && a.Status != 5)
                 .OrderBy(a => a.StartTime)
                 .Select(a => new AppointmentResponse
                 {
                     Id = a.Id,
                     PatientName = a.Patient.Name,
                     ServiceName = a.Service.Name,
-                    ChairName = a.Chair.Name,
+                    ChairName = a.Chair != null ? a.Chair.Name : "Chưa gán ghế",
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     StatusText = GetStatusText(a.Status)
                 })
                 .ToListAsync();
+        }
+
+        // ==========================================
+        // 6. CẬP NHẬT TRẠNG THÁI CHUNG
+        // ==========================================
+        public async Task<bool> UpdateAppointmentStatusAsync(int id, byte newStatus)
+        {
+            var appointment = await _context.Appointments.FindAsync(id);
+            if (appointment == null) throw new ArgumentException("Không tìm thấy lịch khám.");
+
+            if (appointment.Status == 4 && newStatus < 4)
+                throw new InvalidOperationException("Lịch khám đã hoàn thành, không thể quay ngược trạng thái.");
+
+            appointment.Status = newStatus;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // Hàm phụ
+        private static string GetStatusText(byte status)
+        {
+            return status switch
+            {
+                0 => "Pending",
+                1 => "Confirmed",
+                2 => "CheckedIn",
+                3 => "InProgress",
+                4 => "Completed",
+                5 => "Cancelled",
+                6 => "NoShow", // BA Update[cite: 4]
+                _ => "Unknown"
+            };
         }
     }
 }

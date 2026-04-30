@@ -25,8 +25,6 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             try
             {
                 var appointments = await _appointmentService.GetAllAppointmentsAsync();
-
-                // Nếu không có dữ liệu, trả về danh sách rỗng 200 OK
                 return Ok(appointments);
             }
             catch (Exception ex)
@@ -35,10 +33,6 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
-        // ==========================================
-        // THÊM MỚI: LẤY LỊCH HẸN THEO BỆNH NHÂN
-        // API Endpoint: GET /api/appointments/patient/{patientId}
-        // ==========================================
         [HttpGet("patient/{patientId}")]
         public async Task<IActionResult> GetAppointmentsByPatient(int patientId)
         {
@@ -56,18 +50,12 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAppointment([FromBody] AppointmentCreateRequest request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
                 var result = await _appointmentService.CreateAppointmentAsync(request);
-                if (result)
-                {
-                    return Ok(new { Message = "Đặt lịch thành công!" });
-                }
+                if (result) return Ok(new { Message = "Đặt lịch thành công!" });
                 return BadRequest(new { Message = "Đặt lịch thất bại." });
             }
             catch (ArgumentException ex)
@@ -76,7 +64,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(new { Error = ex.Message }); // Trả về mã 409 Conflict nếu trùng lịch
+                return Conflict(new { Error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -84,25 +72,18 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
+        // ==========================================
+        // CẬP NHẬT: API THEO CHUẨN SRS 4.5[cite: 4]
+        // ==========================================
 
-        // Nếu muốn chỉ Lễ tân hoặc Admin mới được cập nhật trạng thái lịch, thêm dòng này:
-        [Authorize(Roles = "Receptionist,Admin")]
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateAppointmentStatus(int id, [FromBody] AppointmentUpdateStatusRequest request)
+        [HttpPut("{id}/cancel")]
+        public async Task<IActionResult> CancelAppointment(int id)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             try
             {
-                var result = await _appointmentService.UpdateAppointmentStatusAsync(id, request.Status);
-                if (result)
-                {
-                    return Ok(new { Message = "Cập nhật trạng thái thành công!" });
-                }
-                return BadRequest(new { Message = "Cập nhật thất bại." });
+                var result = await _appointmentService.CancelAppointmentAsync(id);
+                if (result) return Ok(new { Message = "Hủy lịch thành công!" });
+                return BadRequest(new { Message = "Hủy lịch thất bại." });
             }
             catch (ArgumentException ex)
             {
@@ -118,48 +99,58 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> CancelAppointment(int id)
+        [Authorize(Roles = "Receptionist,Admin")]
+        [HttpPut("{id}/confirm")]
+        public async Task<IActionResult> ConfirmAppointment(int id)
         {
             try
             {
-                var result = await _appointmentService.CancelAppointmentAsync(id);
-                if (result)
-                {
-                    return Ok(new { Message = "Hủy lịch thành công!" });
-                }
-                return BadRequest(new { Message = "Hủy lịch thất bại." });
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound(new { Error = ex.Message }); // 404 Không tìm thấy
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { Error = ex.Message }); // 400 Lỗi vi phạm rule 2 tiếng
+                // Trạng thái 1 = Confirmed[cite: 4]
+                var result = await _appointmentService.UpdateAppointmentStatusAsync(id, 1);
+                if (result) return Ok(new { Message = "Xác nhận lịch thành công!" });
+                return BadRequest(new { Message = "Xác nhận lịch thất bại." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
+                return BadRequest(new { Error = ex.Message });
             }
         }
 
+        [Authorize(Roles = "Receptionist,Admin")]
+        [HttpPut("{id}/checkin")]
+        public async Task<IActionResult> CheckInAppointment(int id)
+        {
+            try
+            {
+                // Gọi thuật toán Gán ghế tự động khi Check-in[cite: 4]
+                var result = await _appointmentService.CheckInAsync(id);
+                if (result) return Ok(new { Message = "Check-in bệnh nhân thành công và đã gán ghế!" });
+                return BadRequest(new { Message = "Check-in thất bại." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        // ==========================================
+        // CÁC HÀM GET KHÁC
+        // ==========================================
+
         [HttpGet("/api/slots")]
-        // Bổ sung thêm tham số serviceId theo chuẩn yêu cầu
         public async Task<IActionResult> GetTimeSlots([FromQuery] int dentistId, [FromQuery] DateTime date, [FromQuery] int serviceId)
         {
             try
             {
-                // Validate nếu người dùng truyền ngày trong quá khứ
                 if (date.Date < DateTime.Now.Date)
                 {
                     return BadRequest(new { Message = "Không thể tra cứu giờ trống trong quá khứ." });
                 }
 
-                // Lưu ý: Nếu IAppointmentService của bạn chưa nhận serviceId, bạn cần vào Interface và Service sửa lại để truyền serviceId vào tính toán thời lượng nhé.
-                var slots = await _appointmentService.GetAvailableTimeSlotsAsync(dentistId, date);
+                // Đã truyền đủ 3 tham số (thêm serviceId) để khớp với Service[cite: 4]
+                var slots = await _appointmentService.GetAvailableTimeSlotsAsync(dentistId, serviceId, date);
 
-                return Ok(slots); // Frontend mong đợi mảng các chuỗi giờ (VD: ["08:00", "08:30"]) chứ không phải object.
+                return Ok(slots);
             }
             catch (Exception ex)
             {

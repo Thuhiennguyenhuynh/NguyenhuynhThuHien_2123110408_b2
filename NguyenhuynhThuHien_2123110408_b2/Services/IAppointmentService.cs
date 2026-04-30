@@ -11,7 +11,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
         Task<IEnumerable<AppointmentResponse>> GetAllAppointmentsAsync();
 
         // Tìm các khung giờ còn trống của 1 nha sĩ trong 1 ngày cụ thể
-        Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, DateTime date);
+      Task<List<string>> GetAvailableTimeSlotsAsync(int dentistId, int serviceId, DateTime date);
 
         Task<bool> UpdateAppointmentStatusAsync(int id, byte newStatus);
 
@@ -19,5 +19,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
         Task<IEnumerable<AppointmentResponse>> GetAppointmentsByPatientIdAsync(int patientId);
         // Thêm vào interface IAppointmentService
         Task<IEnumerable<AppointmentResponse>> GetAppointmentsByDentistIdAsync(int dentistId);
+        Task GetAvailableTimeSlotsAsync(int dentistId, DateTime date);
+        Task<bool> CheckInAsync(int id);
     }
 }

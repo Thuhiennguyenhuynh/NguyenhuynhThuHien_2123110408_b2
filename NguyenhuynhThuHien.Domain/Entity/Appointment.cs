@@ -1,4 +1,5 @@
-﻿using NguyenhuynhThuHien.Domain.Entity.NguyenhuynhThuHien_2123110408_b2.Models;
+﻿using System;
+using NguyenhuynhThuHien.Domain.Entity.NguyenhuynhThuHien_2123110408_b2.Models;
 
 namespace NguyenhuynhThuHien.Domain.Entity
 {
@@ -8,21 +9,22 @@ namespace NguyenhuynhThuHien.Domain.Entity
         public int PatientId { get; set; }
         public int DentistId { get; set; }
         public int ServiceId { get; set; }
-
-        public int ChairId { get; set; }
+        public int? ChairId { get; set; }
 
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
+        public byte Status { get; set; }
 
-        // Theo business rule: "Đánh dấu trạng thái NoShow", có thể lưu trạng thái ở đây (Pending, Confirmed, Cancelled, NoShow)
-        // (Ví dụ: 0: Pending, 1: Confirmed, 2: CheckedIn, 3: InTreatment, 4: Completed, 5: Cancelled, 6: NoShow)
-        public byte Status { get; set; } = 0;
+        // Thêm dấu ? để fix Warning CS8618
+        public string? Note { get; set; }
+        public string? BookingSource { get; set; }
 
-        // Navigation properties
-        public Patient Patient { get; set; } = null!;
-        public Dentist Dentist { get; set; } = null!;
-        public Service Service { get; set; } = null!;
-        public Chair Chair { get; set; } = null!; // Thêm Navigation property cho Chair
+        // ==========================================
+        // THÊM ĐOẠN NÀY ĐỂ FIX 3 LỖI CS1061
+        // ==========================================
+        public virtual Patient Patient { get; set; }
+        public virtual Dentist Dentist { get; set; }
+        public virtual Service Service { get; set; }
+        public virtual Chair Chair { get; set; }
     }
-
 }
