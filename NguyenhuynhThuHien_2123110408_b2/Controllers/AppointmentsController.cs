@@ -171,5 +171,23 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
             }
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetAppointmentById(int id)
+        {
+            try
+            {
+                var appointment = await _appointmentService.GetAppointmentByIdAsync(id);
+                if (appointment == null)
+                {
+                    return NotFound(new { Message = "Không tìm thấy lịch hẹn này." });
+                }
+                return Ok(appointment);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
+            }
+        }
     }
 }

@@ -12,7 +12,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
     [Route("api/[controller]")]
     [ApiController]
     // BẢO MẬT: Chỉ user có Role "Admin" mới được truy cập các API trong Controller này
-    [Authorize(Roles = AppRoles.Admin)]
+    //[Authorize(Roles = AppRoles.Admin)]
+    [Authorize(Roles = "Admin,Receptionist")]
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -79,7 +80,7 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
-
+        
         [HttpGet("dashboard-stats")]
         public async Task<IActionResult> GetDashboardStats()
         {

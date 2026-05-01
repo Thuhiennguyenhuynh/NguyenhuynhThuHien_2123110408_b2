@@ -20,5 +20,6 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
 
         // Hàm CheckIn trả về bool (không phải trả về Object)
         Task<bool> CheckInAsync(int id);
+        Task<AppointmentResponse> GetAppointmentByIdAsync(int id);
     }
 }

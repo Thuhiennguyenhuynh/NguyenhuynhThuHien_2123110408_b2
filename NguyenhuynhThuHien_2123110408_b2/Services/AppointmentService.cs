@@ -290,5 +290,30 @@ namespace NguyenhuynhThuHien_2123110408_b2.Services
         {
             throw new NotImplementedException();
         }
+        public async Task<AppointmentResponse> GetAppointmentByIdAsync(int id)
+        {
+            var appointment = await _context.Appointments
+                .Include(a => a.Patient)
+                .Include(a => a.Dentist)
+                .Include(a => a.Chair)
+                .Include(a => a.Service)
+                .Where(a => a.Id == id)
+                .Select(a => new AppointmentResponse
+                {
+                    Id = a.Id,
+                    PatientName = a.Patient.Name,
+                    DentistName = a.Dentist.Name,
+                    ChairName = a.Chair != null ? a.Chair.Name : "Chưa gán ghế",
+                    ServiceName = a.Service.Name,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    StatusText = GetStatusText(a.Status)
+                    // LƯU Ý: Nếu trong AppointmentResponse của bạn (file DTO) có khai báo thêm 
+                    // các trường như PatientPhone, Price, Note... thì bạn bổ sung map vào đây nhé!
+                })
+                .FirstOrDefaultAsync();
+
+            return appointment; // Sẽ trả về null nếu không tìm thấy
+        }
     }
 }
