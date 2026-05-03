@@ -67,6 +67,8 @@ namespace NguyenhuynhThuHien_2123110408_b2
             builder.Services.AddScoped<IDentistService, DentistService>();
             builder.Services.AddScoped<IDentalService, DentalService>();
             builder.Services.AddScoped<IChairService, ChairService>();
+            builder.Services.AddScoped<ISlotService, SlotService>();
+            builder.Services.AddScoped<IReceptionistService, ReceptionistService>();
 
 
             //Đăng ký ApplicationDbContext

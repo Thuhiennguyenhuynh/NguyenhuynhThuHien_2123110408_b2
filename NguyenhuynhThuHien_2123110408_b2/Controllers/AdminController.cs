@@ -4,16 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using NguyenhuynhThuHien.Domain.Constants;
 using NguyenhuynhThuHien.Domain.Data;
 using NguyenhuynhThuHien.Domain.Entity;
-using NguyenhuynhThuHien.Domain.Entity.NguyenhuynhThuHien_2123110408_b2.Models;
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
 
 namespace NguyenhuynhThuHien_2123110408_b2.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // BẢO MẬT: Chỉ user có Role "Admin" mới được truy cập các API trong Controller này
-    //[Authorize(Roles = AppRoles.Admin)]
-    [Authorize(Roles = "Admin,Receptionist")]
+    [Authorize] // Bắt buộc phải đăng nhập (có token) mới được vào Controller này
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -23,28 +20,31 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             _context = context;
         }
 
+        // CHỈ ADMIN mới được tạo tài khoản nhân viên
         [HttpPost("create-staff")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            // 1. Kiểm tra Role hợp lệ (Không cho phép tạo thêm Admin hoặc tạo Patient ở đây)
             if (request.Role != AppRoles.Dentist && request.Role != AppRoles.Receptionist)
             {
                 return BadRequest(new { Message = "Chỉ được tạo tài khoản cho Dentist hoặc Receptionist." });
             }
+            if(request.Role == AppRoles.Dentist && string.IsNullOrEmpty(request.Specialty))
+            {
+                return BadRequest(new { Message = "Phải cung cấp chuyên môn khi tạo tài khoản Dentist." });
+            }
 
-            // 2. Kiểm tra trùng lặp Username
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
             {
                 return Conflict(new { Message = "Tên đăng nhập này đã tồn tại!" });
             }
 
-            // 3. Dùng Transaction vì ta cập nhật nhiều bảng cùng lúc
+
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Tạo User account
                 var newUser = new User
                 {
                     Username = request.Username,
@@ -55,20 +55,17 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 _context.Users.Add(newUser);
                 await _context.SaveChangesAsync();
 
-                // Nếu là Nha sĩ (Dentist), phải tạo thêm hồ sơ trong bảng Dentists
                 if (request.Role == AppRoles.Dentist)
                 {
                     var newDentist = new Dentist
                     {
                         Name = request.Name,
-                        Specialty = request.Specialty ?? "General Dentistry" // Mặc định nếu không truyền
-                        // Nếu entity Dentist của bạn có cột UserId thì gán: UserId = newUser.Id
+                        UserId = newUser.Id,
+                        Specialty = request.Specialty ?? "General Dentistry"
                     };
                     _context.Dentists.Add(newDentist);
                     await _context.SaveChangesAsync();
                 }
-
-                // (Tùy chọn) Nếu sau này bạn có bảng Receptionist thì thêm if (Role == Receptionist) ở đây
 
                 await transaction.CommitAsync();
                 return Ok(new { Message = $"Đã tạo thành công tài khoản {request.Role} cho {request.Name}" });
@@ -80,25 +77,23 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
-        
+        // CẢ ADMIN VÀ LỄ TÂN đều được xem thống kê Dashboard
         [HttpGet("dashboard-stats")]
+        [Authorize(Roles = "Admin,Receptionist")]
         public async Task<IActionResult> GetDashboardStats()
         {
             try
             {
                 var today = DateTime.Today;
 
-                // 1. Đếm số lịch khám trong ngày hôm nay (bất kể trạng thái nào)
                 var appointmentsToday = await _context.Appointments
                     .Where(a => a.StartTime.Date == today)
                     .CountAsync();
 
-                // 2. Đếm số lịch khám đang chờ duyệt (Status = 0: Pending)
                 var pendingAppointments = await _context.Appointments
                     .Where(a => a.Status == 0)
                     .CountAsync();
 
-                // 3. Đếm số lượng nha sĩ đang hoạt động (Status = 1)
                 var activeDentists = await _context.Dentists
                     .Where(d => d.Status == 1)
                     .CountAsync();
@@ -114,15 +109,16 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             {
                 return StatusCode(500, new { Message = "Lỗi hệ thống khi lấy thống kê", Details = ex.Message });
             }
-            
-    }
 
+        }
+
+        // CHỈ ADMIN mới được xem danh sách Lễ tân
         [HttpGet("receptionists")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetReceptionists()
         {
             try
             {
-                // Chỉ lấy những User có Role là Receptionist
                 var receptionists = await _context.Users
                     .Where(u => u.Role == AppRoles.Receptionist)
                     .Select(u => new
@@ -141,7 +137,9 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             }
         }
 
+        // CHỈ ADMIN mới được xóa tài khoản Lễ tân
         [HttpDelete("receptionists/{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteReceptionist(int id)
         {
             var user = await _context.Users.FindAsync(id);

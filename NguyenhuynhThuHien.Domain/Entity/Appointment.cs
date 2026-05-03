@@ -1,5 +1,4 @@
 ﻿using System;
-using NguyenhuynhThuHien.Domain.Entity.NguyenhuynhThuHien_2123110408_b2.Models;
 
 namespace NguyenhuynhThuHien.Domain.Entity
 {

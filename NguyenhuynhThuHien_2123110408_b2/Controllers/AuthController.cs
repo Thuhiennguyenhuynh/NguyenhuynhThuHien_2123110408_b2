@@ -59,9 +59,9 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                 var newPatient = new Patient
                 {
                     Name = request.Name,
-                    Phone = request.Phone
+                    Phone = request.Phone,
                     // Nếu bảng Patient có cột UserId (Khóa ngoại), bạn gán ở đây:
-                    // UserId = newUser.Id 
+                     UserId = newUser.Id
                 };
 
                 _context.Patients.Add(newPatient);

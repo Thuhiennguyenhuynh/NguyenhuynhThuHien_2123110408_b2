@@ -1,7 +1,5 @@
 ﻿namespace NguyenhuynhThuHien.Domain.Entity
 {
-    namespace NguyenhuynhThuHien_2123110408_b2.Models
-    {
         public class Dentist
         {
             public int Id { get; set; }
@@ -17,4 +15,4 @@
             public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
         }
     }
-}
+

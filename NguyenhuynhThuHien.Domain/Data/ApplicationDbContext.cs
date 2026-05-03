@@ -1,4 +1,4 @@
-﻿using NguyenhuynhThuHien.Domain.Entity.NguyenhuynhThuHien_2123110408_b2.Models;
+﻿
 using NguyenhuynhThuHien.Domain.Entity;
 using System.Collections.Generic;
 using System.Reflection.Emit;
@@ -17,6 +17,7 @@ namespace NguyenhuynhThuHien.Domain.Data
         public DbSet<User> Users { get; set; }
         public DbSet<TimeSlot> TimeSlots { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<Receptionist> Receptionists { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +74,13 @@ namespace NguyenhuynhThuHien.Domain.Data
                 .WithMany(s => s.Appointments)
                 .HasForeignKey(a => a.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Receptionist>()
+                .HasOne(r => r.User)
+                .WithOne()
+                .HasForeignKey<Receptionist>(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
     }
 }

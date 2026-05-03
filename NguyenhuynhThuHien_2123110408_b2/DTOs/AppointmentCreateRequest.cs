@@ -10,8 +10,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.DTOs
         [Required(ErrorMessage = "Vui lòng chọn Nha sĩ")]
         public int DentistId { get; set; }
 
-        [Required(ErrorMessage = "Vui lòng chọn Ghế khám")]
-        public int ChairId { get; set; }
+       
+       
 
         [Required(ErrorMessage = "Vui lòng chọn Dịch vụ")]
         public int ServiceId { get; set; }
