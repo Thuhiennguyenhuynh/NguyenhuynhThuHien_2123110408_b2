@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
 using NguyenhuynhThuHien_2123110408_b2.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -136,27 +136,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
         // ==========================================
         // CÁC HÀM GET KHÁC
         // ==========================================
-
-        [HttpGet("/api/slots")]
-        public async Task<IActionResult> GetTimeSlots([FromQuery] int dentistId, [FromQuery] DateTime date, [FromQuery] int serviceId)
-        {
-            try
-            {
-                if (date.Date < DateTime.Now.Date)
-                {
-                    return BadRequest(new { Message = "Không thể tra cứu giờ trống trong quá khứ." });
-                }
-
-                // Đã truyền đủ 3 tham số (thêm serviceId) để khớp với Service[cite: 4]
-                var slots = await _appointmentService.GetAvailableTimeSlotsAsync(dentistId, serviceId, date);
-
-                return Ok(slots);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Error = "Lỗi hệ thống: " + ex.Message });
-            }
-        }
+        // LƯU Ý: Endpoint /api/slots đã được phục vụ bởi SlotsController
+        // Không khai báo trùng ở đây để tránh AmbiguousMatchException
 
         [HttpGet("dentist/{dentistId}")]
         public async Task<IActionResult> GetAppointmentsByDentist(int dentistId)

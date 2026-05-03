@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NguyenhuynhThuHien.Domain.Constants;
@@ -64,6 +64,16 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
                         Specialty = request.Specialty ?? "General Dentistry"
                     };
                     _context.Dentists.Add(newDentist);
+                    await _context.SaveChangesAsync();
+                }
+                else if (request.Role == AppRoles.Receptionist)
+                {
+                    var newReceptionist = new Receptionist
+                    {
+                        Name = request.Name,
+                        UserId = newUser.Id
+                    };
+                    _context.Receptionists.Add(newReceptionist);
                     await _context.SaveChangesAsync();
                 }
 

@@ -1,5 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NguyenhuynhThuHien.Domain.Data;
+using NguyenhuynhThuHien.Domain.Entity;
 using NguyenhuynhThuHien_2123110408_b2.DTOs;
 
 namespace NguyenhuynhThuHien_2123110408_b2.Services

@@ -1,4 +1,4 @@
-﻿
+
 using NguyenhuynhThuHien.Domain.Entity;
 using System.Collections.Generic;
 using System.Reflection.Emit;
@@ -32,23 +32,19 @@ namespace NguyenhuynhThuHien.Domain.Data
                 .HasMaxLength(15)
                 .IsRequired();
 
+            // Cấu hình Username UNIQUE (SRS 4.2.2)
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
             // 2. Cấu hình bảng Service (Cấu hình DECIMAL cho Price)
             modelBuilder.Entity<Service>()
                 .Property(s => s.Price)
                 .HasColumnType("decimal(10,2)");
 
             // 3. Cấu hình bảng Appointment
-            // Ràng buộc Unique: Tránh 1 nha sĩ (Dentist) bị trùng lịch (StartTime)
-            modelBuilder.Entity<Appointment>()
-                .HasIndex(a => new { a.DentistId, a.StartTime })
-                .IsUnique()
-                .HasDatabaseName("UX_Dentist_Time");
-
-            // Ràng buộc Unique: Tránh 1 ghế (Chair) bị trùng lịch (StartTime)
-            modelBuilder.Entity<Appointment>()
-                .HasIndex(a => new { a.ChairId, a.StartTime })
-                .IsUnique()
-                .HasDatabaseName("UX_Chair_Time");
+            // LƯU Ý: Không dùng Unique Index trên (DentistId, StartTime) vì chỉ check trùng StartTime,
+            // không check overlap thời gian. Việc kiểm tra overlap được thực hiện bằng code C# (BR-01, BR-02).
 
             // Ràng buộc Khóa ngoại (Tránh xóa dây chuyền - Cascade Delete)
             modelBuilder.Entity<Appointment>()

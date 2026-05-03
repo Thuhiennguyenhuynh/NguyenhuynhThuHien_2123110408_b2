@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NguyenhuynhThuHien.Domain.Constants;
@@ -100,7 +100,8 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
             // 2. Tạo Claims (lấy Role TỪ DATABASE, đảm bảo bảo mật tuyệt đối)
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role)
             };
 
@@ -119,8 +120,32 @@ namespace NguyenhuynhThuHien_2123110408_b2.Controllers
 
             var jwtToken = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
 
-            // Trả về Token và Role để Frontend (Vue.js) dễ dàng chuyển hướng (chuyển Admin page hoặc Patient page)
-            return Ok(new { Token = jwtToken, Role = user.Role, Expires = tokenDescriptor.ValidTo });
+            // 5. Tra cứu Profile ID tương ứng (PatientId / DentistId / ReceptionistId)
+            int? profileId = null;
+            if (user.Role == AppRoles.Patient)
+            {
+                profileId = await _context.Patients
+                    .Where(p => p.UserId == user.Id)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync();
+            }
+            else if (user.Role == AppRoles.Dentist)
+            {
+                profileId = await _context.Dentists
+                    .Where(d => d.UserId == user.Id)
+                    .Select(d => (int?)d.Id)
+                    .FirstOrDefaultAsync();
+            }
+            else if (user.Role == AppRoles.Receptionist)
+            {
+                profileId = await _context.Receptionists
+                    .Where(r => r.UserId == user.Id)
+                    .Select(r => (int?)r.Id)
+                    .FirstOrDefaultAsync();
+            }
+
+            // Trả về Token, Role và ProfileId để Frontend (Vue.js) dễ dàng chuyển hướng
+            return Ok(new { Token = jwtToken, Role = user.Role, UserId = user.Id, ProfileId = profileId, Expires = tokenDescriptor.ValidTo });
         }
     }
 }

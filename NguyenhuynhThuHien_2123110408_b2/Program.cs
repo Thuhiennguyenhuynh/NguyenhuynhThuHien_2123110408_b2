@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -101,7 +101,6 @@ namespace NguyenhuynhThuHien_2123110408_b2
             });
 
             builder.Services.AddAuthorization();
-            builder.Services.AddControllers();
 
 
 
